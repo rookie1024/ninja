@@ -182,7 +182,7 @@ struct Edge {
   int order_only_deps_;
   bool is_implicit(size_t index) {
     return index >= inputs_.size() - order_only_deps_ - implicit_deps_ &&
-      !is_order_only(index);
+        !is_order_only(index);
   }
   bool is_order_only(size_t index) {
     return index >= inputs_.size() - order_only_deps_;

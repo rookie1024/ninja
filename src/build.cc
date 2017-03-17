@@ -735,7 +735,7 @@ bool Builder::StartEdge(Edge* edge, string* err) {
   // Create directories necessary for outputs.
   // XXX: this will block; do we care?
   for (vector<Node*>::iterator o = edge->outputs_.begin();
-      o != edge->outputs_.end(); ++o) {
+       o != edge->outputs_.end(); ++o) {
     if ((*o)->is_virtual()) continue;
 
     if (!disk_interface_->MakeDirs((*o)->path()))
