@@ -114,14 +114,16 @@ int Cleaner::CleanAll(bool generator) {
   PrintHeader();
   for (vector<Edge*>::iterator e = state_->edges_.begin();
        e != state_->edges_.end(); ++e) {
-    // Do not try to remove phony or virtual targets
-    if ((*e)->is_phony() || (*e)->HasVirtualOut())
+    // Do not try to remove phony targets
+    if ((*e)->is_phony())
       continue;
     // Do not remove generator's files unless generator specified.
     if (!generator && (*e)->GetBindingBool("generator"))
       continue;
     for (vector<Node*>::iterator out_node = (*e)->outputs_.begin();
          out_node != (*e)->outputs_.end(); ++out_node) {
+      // Do not try to remove virtual targets
+      if ((*out_node)->is_virtual()) continue;
       Remove((*out_node)->path());
     }
 

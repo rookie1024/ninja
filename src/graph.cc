@@ -28,8 +28,12 @@
 #include "util.h"
 
 bool Node::Stat(DiskInterface* disk_interface, string* err) {
+  if (is_virtual_) {
+    mtime_ = 0;
+    return true;
+  }
+
   METRIC_RECORD("node stat");
-  if (is_virtual_) return false;
   return (mtime_ = disk_interface->Stat(path_, err)) != -1;
 }
 
@@ -37,7 +41,7 @@ bool DependencyScan::RecomputeDirty(Edge* edge, string* err) {
   bool dirty = false;
   edge->outputs_ready_ = true;
   edge->deps_missing_ = false;
-  
+
   // Load output mtimes so we can compare them to the most recent input below.
   // RecomputeDirty() recursively walks the graph following the input nodes
   // of |edge| and the in_edges of these nodes.  It uses the stat state of each
@@ -104,7 +108,7 @@ bool DependencyScan::RecomputeDirty(Edge* edge, string* err) {
   if (!dirty)
     if (!RecomputeOutputsDirty(edge, most_recent_input, &dirty, err))
       return false;
-  
+
   // Finally, visit each output and update their dirty state if necessary.
   for (vector<Node*>::iterator o = edge->outputs_.begin();
        o != edge->outputs_.end(); ++o) {
@@ -152,7 +156,7 @@ bool DependencyScan::RecomputeOutputDirty(Edge* edge,
   }
 
   if (output->is_virtual()) {
-    EXPLAIN("output %s is virtual and therefore always out-of-date",
+    EXPLAIN("output %s is virtual and therefore always dirty",
             output->path().c_str());
     return true;
   }
@@ -323,10 +327,6 @@ string Edge::GetUnescapedDepfile() {
 string Edge::GetUnescapedRspfile() {
   EdgeEnv env(this, EdgeEnv::kDoNotEscape);
   return env.LookupVariable("rspfile");
-}
-
-bool Edge::HasVirtualOut() const {
-  return outputs_[0]->is_virtual();
 }
 
 void Edge::Dump(const char* prefix) const {

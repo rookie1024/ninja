@@ -365,7 +365,7 @@ bool ManifestParser::ParseEdge(bool is_util, string* err) {
       uint64_t slash_bits;
       if (!CanonicalizePath(&path, &slash_bits, &path_err))
         return lexer_.Error(path_err, err);
-      if (!state_->AddOut(edge, path, slash_bits, i == 0)) {
+      if (!state_->AddOut(edge, path, slash_bits, is_util && i == 0)) {
         if (dupe_edge_action_ == kDupeEdgeActionError) {
           return lexer_.Error("multiple rules generate " + path +
                               " [-w dupbuild=err]", err);

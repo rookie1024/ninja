@@ -68,9 +68,6 @@ struct Plan {
   /// Return false on error.
   bool CleanNode(DependencyScan* scan, Node* node, string* err);
 
-  /// Number of wanted edges.
-  int wanted_edge_count() const { return wanted_edges_; }
-
   /// Number of edges with commands to run.
   int command_edge_count() const { return command_edges_; }
 

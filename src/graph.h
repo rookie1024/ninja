@@ -56,7 +56,7 @@ struct Node {
   /// Mark as not-yet-stat()ed and not dirty.
   void ResetState() {
     mtime_ = -1;
-    dirty_ = is_virtual_;
+    dirty_ = false;
   }
 
   /// Mark the Node as already-stat()ed and missing.
@@ -65,11 +65,11 @@ struct Node {
   }
 
   bool exists() const {
-    return !(is_virtual_ || mtime_ == 0);
+    return mtime_ != 0;
   }
 
   bool status_known() const {
-    return is_virtual_ || mtime_ != -1;
+    return mtime_ != -1;
   }
 
   const string& path() const { return path_; }
@@ -81,9 +81,9 @@ struct Node {
                                     uint64_t slash_bits);
   uint64_t slash_bits() const { return slash_bits_; }
 
-  TimeStamp mtime() const { return is_virtual_ ? 0 : mtime_; }
+  TimeStamp mtime() const { return mtime_; }
 
-  bool dirty() const { return is_virtual_ || dirty_; }
+  bool dirty() const { return dirty_; }
   void set_dirty(bool dirty) { dirty_ = dirty; }
 
   Edge* in_edge() const { return in_edge_; }
@@ -100,7 +100,7 @@ struct Node {
 
   void Dump(const char* prefix="") const;
 
- private:
+private:
   string path_;
 
   /// Set bits starting from lowest for backslashes that were normalized to
@@ -155,10 +155,6 @@ struct Edge {
   /// Like GetBinding("rspfile"), but without shell escaping.
   string GetUnescapedRspfile();
 
-  /// Returns true if the first output of this edge is virtual
-  /// (i.e. this edge is a utility edge)
-  bool HasVirtualOut() const;
-
   void Dump(const char* prefix="") const;
 
   const Rule* rule_;
@@ -186,7 +182,7 @@ struct Edge {
   int order_only_deps_;
   bool is_implicit(size_t index) {
     return index >= inputs_.size() - order_only_deps_ - implicit_deps_ &&
-           !is_order_only(index);
+      !is_order_only(index);
   }
   bool is_order_only(size_t index) {
     return index >= inputs_.size() - order_only_deps_;
@@ -265,7 +261,7 @@ struct DependencyScan {
   /// Recompute whether any output of the edge is dirty, if so sets |*dirty|.
   /// Returns false on failure.
   bool RecomputeOutputsDirty(Edge* edge, Node* most_recent_input,
-                            bool* dirty, string* err);
+                             bool* dirty, string* err);
 
   BuildLog* build_log() const {
     return build_log_;
