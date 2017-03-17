@@ -40,7 +40,8 @@ struct Node {
         mtime_(-1),
         dirty_(false),
         in_edge_(NULL),
-        id_(-1) {}
+        id_(-1),
+        is_virtual_(false) {}
 
   /// Return false on error.
   bool Stat(DiskInterface* disk_interface, string* err);
@@ -55,7 +56,7 @@ struct Node {
   /// Mark as not-yet-stat()ed and not dirty.
   void ResetState() {
     mtime_ = -1;
-    dirty_ = false;
+    dirty_ = is_virtual_;
   }
 
   /// Mark the Node as already-stat()ed and missing.
@@ -64,11 +65,11 @@ struct Node {
   }
 
   bool exists() const {
-    return mtime_ != 0;
+    return !(is_virtual_ || mtime_ == 0);
   }
 
   bool status_known() const {
-    return mtime_ != -1;
+    return is_virtual_ || mtime_ != -1;
   }
 
   const string& path() const { return path_; }
@@ -80,11 +81,10 @@ struct Node {
                                     uint64_t slash_bits);
   uint64_t slash_bits() const { return slash_bits_; }
 
-  TimeStamp mtime() const { return mtime_; }
+  TimeStamp mtime() const { return is_virtual_ ? 0 : mtime_; }
 
-  bool dirty() const { return dirty_; }
+  bool dirty() const { return is_virtual_ || dirty_; }
   void set_dirty(bool dirty) { dirty_ = dirty; }
-  void MarkDirty() { dirty_ = true; }
 
   Edge* in_edge() const { return in_edge_; }
   void set_in_edge(Edge* edge) { in_edge_ = edge; }
@@ -92,12 +92,15 @@ struct Node {
   int id() const { return id_; }
   void set_id(int id) { id_ = id; }
 
+  bool is_virtual() const { return is_virtual_; }
+  void set_is_virtual(bool is_virtual) { is_virtual_ = is_virtual; }
+
   const vector<Edge*>& out_edges() const { return out_edges_; }
   void AddOutEdge(Edge* edge) { out_edges_.push_back(edge); }
 
   void Dump(const char* prefix="") const;
 
-private:
+ private:
   string path_;
 
   /// Set bits starting from lowest for backslashes that were normalized to
@@ -124,6 +127,9 @@ private:
 
   /// A dense integer id for the node, assigned and used by DepsLog.
   int id_;
+
+  /// A flag specifying whether or not this Node was created for a util edge
+  bool is_virtual_;
 };
 
 /// An edge in the dependency graph; links between Nodes using Rules.
@@ -148,6 +154,10 @@ struct Edge {
   string GetUnescapedDepfile();
   /// Like GetBinding("rspfile"), but without shell escaping.
   string GetUnescapedRspfile();
+
+  /// Returns true if the first output of this edge is virtual
+  /// (i.e. this edge is a utility edge)
+  bool HasVirtualOut() const;
 
   void Dump(const char* prefix="") const;
 
@@ -176,7 +186,7 @@ struct Edge {
   int order_only_deps_;
   bool is_implicit(size_t index) {
     return index >= inputs_.size() - order_only_deps_ - implicit_deps_ &&
-        !is_order_only(index);
+           !is_order_only(index);
   }
   bool is_order_only(size_t index) {
     return index >= inputs_.size() - order_only_deps_;
@@ -255,7 +265,7 @@ struct DependencyScan {
   /// Recompute whether any output of the edge is dirty, if so sets |*dirty|.
   /// Returns false on failure.
   bool RecomputeOutputsDirty(Edge* edge, Node* most_recent_input,
-                             bool* dirty, string* err);
+                            bool* dirty, string* err);
 
   BuildLog* build_log() const {
     return build_log_;

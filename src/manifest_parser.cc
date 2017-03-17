@@ -65,7 +65,11 @@ bool ManifestParser::Parse(const string& filename, const string& input,
         return false;
       break;
     case Lexer::BUILD:
-      if (!ParseEdge(err))
+      if (!ParseEdge(false, err))
+        return false;
+      break;
+    case Lexer::UTIL:
+      if (!ParseEdge(true, err))
         return false;
       break;
     case Lexer::RULE:
@@ -229,19 +233,29 @@ bool ManifestParser::ParseDefault(string* err) {
   return true;
 }
 
-bool ManifestParser::ParseEdge(string* err) {
+bool ManifestParser::ParseEdge(bool is_util, string* err) {
   vector<EvalString> ins, outs;
 
   {
     EvalString out;
     if (!lexer_.ReadPath(&out, err))
       return false;
-    while (!out.empty()) {
-      outs.push_back(out);
 
-      out.Clear();
-      if (!lexer_.ReadPath(&out, err))
-        return false;
+    if (is_util) {
+      if (!out.empty()) {
+        outs.push_back(out);
+
+        out.Clear();
+      }
+    }
+    else {
+      while (!out.empty()) {
+        outs.push_back(out);
+
+        out.Clear();
+        if (!lexer_.ReadPath(&out, err))
+          return false;
+      }
     }
   }
 
@@ -272,6 +286,9 @@ bool ManifestParser::ParseEdge(string* err) {
   const Rule* rule = env_->LookupRule(rule_name);
   if (!rule)
     return lexer_.Error("unknown build rule '" + rule_name + "'", err);
+
+  if (rule == &State::kPhonyRule && is_util)
+    return lexer_.Error("rule 'phony' is invalid for a utility edge", err);
 
   for (;;) {
     // XXX should we require one path here?
@@ -338,27 +355,30 @@ bool ManifestParser::ParseEdge(string* err) {
     edge->pool_ = pool;
   }
 
-  edge->outputs_.reserve(outs.size());
-  for (size_t i = 0, e = outs.size(); i != e; ++i) {
-    string path = outs[i].Evaluate(env);
-    string path_err;
-    uint64_t slash_bits;
-    if (!CanonicalizePath(&path, &slash_bits, &path_err))
-      return lexer_.Error(path_err, err);
-    if (!state_->AddOut(edge, path, slash_bits)) {
-      if (dupe_edge_action_ == kDupeEdgeActionError) {
-        lexer_.Error("multiple rules generate " + path + " [-w dupbuild=err]",
-                     err);
-        return false;
-      } else {
-        if (!quiet_) {
-          Warning("multiple rules generate %s. "
-                  "builds involving this target will not be correct; "
-                  "continuing anyway [-w dupbuild=warn]",
-                  path.c_str());
+  {
+    size_t n_outs = outs.size();
+
+    edge->outputs_.reserve(n_outs);
+    for (size_t i = 0; i != n_outs; ++i) {
+      string path = outs[i].Evaluate(env);
+      string path_err;
+      uint64_t slash_bits;
+      if (!CanonicalizePath(&path, &slash_bits, &path_err))
+        return lexer_.Error(path_err, err);
+      if (!state_->AddOut(edge, path, slash_bits, i == 0)) {
+        if (dupe_edge_action_ == kDupeEdgeActionError) {
+          return lexer_.Error("multiple rules generate " + path +
+                              " [-w dupbuild=err]", err);
+        } else {
+          if (!quiet_) {
+            Warning("multiple rules generate %s. "
+                    "builds involving this target will not be correct; "
+                    "continuing anyway [-w dupbuild=warn]",
+                    path.c_str());
+          }
+          if (n_outs - i <= static_cast<size_t>(implicit_outs))
+            --implicit_outs;
         }
-        if (e - i <= static_cast<size_t>(implicit_outs))
-          --implicit_outs;
       }
     }
   }
@@ -371,14 +391,21 @@ bool ManifestParser::ParseEdge(string* err) {
   }
   edge->implicit_outs_ = implicit_outs;
 
-  edge->inputs_.reserve(ins.size());
-  for (vector<EvalString>::iterator i = ins.begin(); i != ins.end(); ++i) {
-    string path = i->Evaluate(env);
-    string path_err;
-    uint64_t slash_bits;
-    if (!CanonicalizePath(&path, &slash_bits, &path_err))
-      return lexer_.Error(path_err, err);
-    state_->AddIn(edge, path, slash_bits);
+  {
+    size_t n_ins = ins.size(), n_non_order_only = n_ins - order_only;
+
+    edge->inputs_.reserve(n_ins);
+    for (size_t i = 0; i != n_ins; ++i) {
+      string path = ins[i].Evaluate(env);
+      string path_err;
+      uint64_t slash_bits;
+      if (!CanonicalizePath(&path, &slash_bits, &path_err))
+        return lexer_.Error(path_err, err);
+      if (!state_->AddIn(edge, path, slash_bits, i >= n_non_order_only)) {
+        return lexer_.Error("edge dependency '" + path +
+                     "' refers to the name of a utility rule", err);
+      }
+    }
   }
   edge->implicit_deps_ = implicit;
   edge->order_only_deps_ = order_only;

@@ -134,18 +134,24 @@ Node* State::SpellcheckNode(const string& path) {
   return result;
 }
 
-void State::AddIn(Edge* edge, StringPiece path, uint64_t slash_bits) {
+bool State::AddIn(Edge* edge, StringPiece path, uint64_t slash_bits,
+                  bool order_only) {
   Node* node = GetNode(path, slash_bits);
+  if (!(order_only || edge->is_phony()) && node->is_virtual())
+    return false;
   edge->inputs_.push_back(node);
   node->AddOutEdge(edge);
+  return true;
 }
 
-bool State::AddOut(Edge* edge, StringPiece path, uint64_t slash_bits) {
+bool State::AddOut(Edge* edge, StringPiece path, uint64_t slash_bits,
+                   bool is_virtual) {
   Node* node = GetNode(path, slash_bits);
   if (node->in_edge())
     return false;
   edge->outputs_.push_back(node);
   node->set_in_edge(edge);
+  node->set_is_virtual(is_virtual);
   return true;
 }
 

@@ -310,6 +310,7 @@ bool Plan::AddSubTarget(Node* node, vector<Node*>* stack, string* err) {
   if (node->dirty() && !want) {
     want = true;
     ++wanted_edges_;
+    EXPLAIN("want edge %s", edge->outputs_[0]->path().c_str());
     if (edge->AllInputsReady())
       ScheduleWork(edge);
     if (!edge->is_phony())
@@ -653,6 +654,8 @@ bool Builder::Build(string* err) {
   // We are about to start the build process.
   status_->BuildStarted();
 
+  EXPLAIN("initial wanted edges: %i", plan_.wanted_edge_count());
+
   // This main loop runs the entire build process.
   // It is structured like this:
   // First, we attempt to start as many commands as allowed by the
@@ -708,6 +711,10 @@ bool Builder::Build(string* err) {
 
     // If we get here, we cannot make any more progress.
     status_->BuildFinished();
+
+    EXPLAIN("wanted edges left: %i", plan_.wanted_edge_count());
+    EXPLAIN("command edges: %i", plan_.command_edge_count());
+
     if (failures_allowed == 0) {
       if (config_.failures_allowed > 1)
         *err = "subcommands failed";
@@ -732,21 +739,23 @@ bool Builder::StartEdge(Edge* edge, string* err) {
 
   status_->BuildEdgeStarted(edge);
 
-  // Create directories necessary for outputs.
-  // XXX: this will block; do we care?
-  for (vector<Node*>::iterator o = edge->outputs_.begin();
-       o != edge->outputs_.end(); ++o) {
-    if (!disk_interface_->MakeDirs((*o)->path()))
-      return false;
-  }
+  if (!edge->HasVirtualOut()) {
+    // Create directories necessary for outputs.
+    // XXX: this will block; do we care?
+    for (vector<Node*>::iterator o = edge->outputs_.begin();
+        o != edge->outputs_.end(); ++o) {
+      if (!disk_interface_->MakeDirs((*o)->path()))
+        return false;
+    }
 
-  // Create response file, if needed
-  // XXX: this may also block; do we care?
-  string rspfile = edge->GetUnescapedRspfile();
-  if (!rspfile.empty()) {
-    string content = edge->GetBinding("rspfile_content");
-    if (!disk_interface_->WriteFile(rspfile, content))
-      return false;
+    // Create response file, if needed
+    // XXX: this may also block; do we care?
+    string rspfile = edge->GetUnescapedRspfile();
+    if (!rspfile.empty()) {
+      string content = edge->GetBinding("rspfile_content");
+      if (!disk_interface_->WriteFile(rspfile, content))
+        return false;
+    }
   }
 
   // start command computing and run it
@@ -800,6 +809,9 @@ bool Builder::FinishCommand(CommandRunner::Result* result, string* err) {
 
     for (vector<Node*>::iterator o = edge->outputs_.begin();
          o != edge->outputs_.end(); ++o) {
+      // Don't restat virtual outputs
+      if ((*o)->is_virtual()) continue;
+
       TimeStamp new_mtime = disk_interface_->Stat((*o)->path(), err);
       if (new_mtime == -1)
         return false;

@@ -114,8 +114,8 @@ int Cleaner::CleanAll(bool generator) {
   PrintHeader();
   for (vector<Edge*>::iterator e = state_->edges_.begin();
        e != state_->edges_.end(); ++e) {
-    // Do not try to remove phony targets
-    if ((*e)->is_phony())
+    // Do not try to remove phony or virtual targets
+    if ((*e)->is_phony() || (*e)->HasVirtualOut())
       continue;
     // Do not remove generator's files unless generator specified.
     if (!generator && (*e)->GetBindingBool("generator"))
