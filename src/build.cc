@@ -736,6 +736,8 @@ bool Builder::StartEdge(Edge* edge, string* err) {
   // XXX: this will block; do we care?
   for (vector<Node*>::iterator o = edge->outputs_.begin();
        o != edge->outputs_.end(); ++o) {
+    if ((*o)->is_virtual()) continue;
+
     if (!disk_interface_->MakeDirs((*o)->path()))
       return false;
   }
@@ -800,6 +802,9 @@ bool Builder::FinishCommand(CommandRunner::Result* result, string* err) {
 
     for (vector<Node*>::iterator o = edge->outputs_.begin();
          o != edge->outputs_.end(); ++o) {
+      // Don't restat virtual outputs
+      if ((*o)->is_virtual()) continue;
+
       TimeStamp new_mtime = disk_interface_->Stat((*o)->path(), err);
       if (new_mtime == -1)
         return false;

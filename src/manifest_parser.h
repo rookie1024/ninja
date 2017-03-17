@@ -53,7 +53,7 @@ private:
   bool ParsePool(string* err);
   bool ParseRule(string* err);
   bool ParseLet(string* key, EvalString* val, string* err);
-  bool ParseEdge(string* err);
+  bool ParseEdge(bool is_util, string* err);
   bool ParseDefault(string* err);
 
   /// Parse either a 'subninja' or 'include' line.

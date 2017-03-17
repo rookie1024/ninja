@@ -86,6 +86,7 @@ const char* Lexer::TokenName(Token t) {
   case RULE:     return "'rule'";
   case SUBNINJA: return "'subninja'";
   case TEOF:     return "eof";
+  case UTIL:     return "util";
   }
   return NULL;  // not reached
 }
@@ -135,6 +136,7 @@ Lexer::Token Lexer::ReadToken() {
     [ ]*"\n"   { token = NEWLINE;  break; }
     [ ]+       { token = INDENT;   break; }
     "build"    { token = BUILD;    break; }
+    "util"     { token = UTIL;     break; }
     "pool"     { token = POOL;     break; }
     "rule"     { token = RULE;     break; }
     "default"  { token = DEFAULT;  break; }

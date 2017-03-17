@@ -28,6 +28,11 @@
 #include "util.h"
 
 bool Node::Stat(DiskInterface* disk_interface, string* err) {
+  if (is_virtual_) {
+    mtime_ = 0;
+    return true;
+  }
+
   METRIC_RECORD("node stat");
   return (mtime_ = disk_interface->Stat(path_, err)) != -1;
 }
@@ -108,7 +113,7 @@ bool DependencyScan::RecomputeDirty(Edge* edge, string* err) {
   for (vector<Node*>::iterator o = edge->outputs_.begin();
        o != edge->outputs_.end(); ++o) {
     if (dirty)
-      (*o)->MarkDirty();
+      (*o)->set_dirty(true);
   }
 
   // If an edge is dirty, its outputs are normally not ready.  (It's
@@ -148,6 +153,12 @@ bool DependencyScan::RecomputeOutputDirty(Edge* edge,
       return true;
     }
     return false;
+  }
+
+  if (output->is_virtual()) {
+    EXPLAIN("output %s is virtual and therefore always dirty",
+            output->path().c_str());
+    return true;
   }
 
   BuildLog::LogEntry* entry = 0;

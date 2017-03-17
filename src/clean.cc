@@ -122,6 +122,8 @@ int Cleaner::CleanAll(bool generator) {
       continue;
     for (vector<Node*>::iterator out_node = (*e)->outputs_.begin();
          out_node != (*e)->outputs_.end(); ++out_node) {
+      // Do not try to remove virtual targets
+      if ((*out_node)->is_virtual()) continue;
       Remove((*out_node)->path());
     }
 

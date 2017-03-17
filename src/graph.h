@@ -40,7 +40,8 @@ struct Node {
         mtime_(-1),
         dirty_(false),
         in_edge_(NULL),
-        id_(-1) {}
+        id_(-1),
+        is_virtual_(false) {}
 
   /// Return false on error.
   bool Stat(DiskInterface* disk_interface, string* err);
@@ -84,13 +85,15 @@ struct Node {
 
   bool dirty() const { return dirty_; }
   void set_dirty(bool dirty) { dirty_ = dirty; }
-  void MarkDirty() { dirty_ = true; }
 
   Edge* in_edge() const { return in_edge_; }
   void set_in_edge(Edge* edge) { in_edge_ = edge; }
 
   int id() const { return id_; }
   void set_id(int id) { id_ = id; }
+
+  bool is_virtual() const { return is_virtual_; }
+  void set_is_virtual(bool is_virtual) { is_virtual_ = is_virtual; }
 
   const vector<Edge*>& out_edges() const { return out_edges_; }
   void AddOutEdge(Edge* edge) { out_edges_.push_back(edge); }
@@ -124,6 +127,9 @@ private:
 
   /// A dense integer id for the node, assigned and used by DepsLog.
   int id_;
+
+  /// A flag specifying whether or not this Node was created for a util edge
+  bool is_virtual_;
 };
 
 /// An edge in the dependency graph; links between Nodes using Rules.
