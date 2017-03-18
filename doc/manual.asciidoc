@@ -446,6 +446,54 @@ it does not exist.  Without a phony build statement, Ninja will report
 an error if the file does not exist and is required by the build.
 
 
+Util statements
+~~~~~~~~~~~~~~~
+
+_Available since Ninja <INSERT VERSION HERE>._
+
+Util statements are very similar in appearance and function to build statements.
+They differ, however, in one important aspect: util rules are not intended to
+have outputs, and will always be considered out-of-date.  Util rules have the
+format +util _outputs_: _rulename_ _inputs_+, similar to build statements. Util
+statements are intended for running tests or other tools for a project.  For
+example:
+
+----------------
+cflags = -Wall -Werror
+rule cc
+  command = gcc $cflags -c $in -o $out
+
+rule link
+  command = gcc $in -o $out
+
+rule fmt
+  command = clang-format -i $in
+
+rule run
+  command = $in $args
+
+build foo: link foo.o
+
+build foo.o: cc foo.c
+
+# Util statements act like the phony rule, except that they can run any rule.
+util format: fmt foo.c
+
+# This will build foo (if it's out-of-date) and then always execute "foo --bar".
+util test: run foo
+  args = --bar
+----------------
+
+Util statements may have exactly one output, which is treated as a virtual,
+non-existent file.  (Util statements do, however, support any number of implicit
+outputs; see <<ref_outputs,the reference>> for info on output types.)
+
+Since the output of util statements does not necessarily exist as a file, it is
+invalid to use the output of util statements as an input for another rule (with
+the exception of order-only inputs; see <<ref_inputs,the reference>> for info on
+input types.)
+
+
 Default target statements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
